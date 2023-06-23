@@ -39,12 +39,18 @@ type CheckRequest struct {
 type CheckResponse []Version
 
 type Source struct {
-	InitialVersion bool       `json:"initial_version"`
-	Interval       *Interval  `json:"interval"`
-	Start          *TimeOfDay `json:"start"`
-	Stop           *TimeOfDay `json:"stop"`
-	Days           []Weekday  `json:"days"`
-	Location       *Location  `json:"location"`
+	InitialVersion            bool       `json:"initial_version"`
+	Interval                  *Interval  `json:"interval"`
+	Start                     *TimeOfDay `json:"start"`
+	Stop                      *TimeOfDay `json:"stop"`
+	Days                      []Weekday  `json:"days"`
+	Location                  *Location  `json:"location"`
+	GitRepoURL                string     `json:"git_repo_url"`
+	GitRepoPrivateKey         string     `json:"git_repo_private_key_file"`
+	GitRepoPrivateKeyPassword string     `json:"git_repo_private_key_password"`
+	ServiceName               string     `json:"service_name"`
+	CanaryRegion              string     `json:"canary_region"`
+	DependsOn                 string     `json:"depends_on"`
 }
 
 func (source Source) Validate() error {
