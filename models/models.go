@@ -46,7 +46,7 @@ type Source struct {
 	Days                      []Weekday  `json:"days"`
 	Location                  *Location  `json:"location"`
 	GitRepoURL                string     `json:"git_repo_url"`
-	GitRepoPrivateKey         string     `json:"git_repo_private_key_file"`
+	GitRepoPrivateKey         string     `json:"git_repo_private_key"`
 	GitRepoPrivateKeyPassword string     `json:"git_repo_private_key_password"`
 	ServiceName               string     `json:"service_name"`
 	CanaryRegion              string     `json:"canary_region"`

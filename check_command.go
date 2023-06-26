@@ -1,7 +1,6 @@
 package resource
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/concourse/time-resource/canary_deploy"
@@ -48,13 +47,11 @@ func (*CheckCommand) Run(request models.CheckRequest) ([]models.Version, error) 
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("%+v\n", stateFile)
 	cd := canary_deploy.CanaryDeploy{
 		StateFile:    stateFile,
 		CanaryRegion: request.Source.CanaryRegion,
 		DependsOn:    request.Source.DependsOn,
 	}
-	fmt.Println(cd.Check(), "\n")
 
 	if !previousTime.IsZero() {
 		versions = append(versions, models.Version{Time: previousTime})
@@ -63,7 +60,7 @@ func (*CheckCommand) Run(request models.CheckRequest) ([]models.Version, error) 
 		return versions, nil
 	}
 
-	if tl.Check(currentTime) {
+	if tl.Check(currentTime) && cd.Check() {
 		versions = append(versions, models.Version{Time: currentTime})
 	}
 

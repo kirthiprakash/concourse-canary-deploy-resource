@@ -21,12 +21,12 @@ type Config struct {
 
 func GetStateFileFromGithub(config Config) (map[string]interface{}, error) {
 	var stateFile map[string]interface{}
-	publicKeys, err := ssh.NewPublicKeysFromFile("git", config.GitRepoPrivateKey, config.GitRepoPrivateKeyPassword)
+	publicKeys, err := ssh.NewPublicKeys("git", []byte(config.GitRepoPrivateKey), config.GitRepoPrivateKeyPassword)
+
 	if err != nil {
 		fmt.Println("publickey err", err, config.GitRepoPrivateKey)
 		return stateFile, err
 	}
-	fmt.Println("public keys", publicKeys)
 	storer := memory.NewStorage()
 	fs := memfs.New()
 	_, err = git.Clone(storer, fs, &git.CloneOptions{
