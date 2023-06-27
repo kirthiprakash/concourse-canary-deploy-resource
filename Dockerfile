@@ -1,4 +1,4 @@
-ARG base_image=ubuntu:latest
+ARG base_image=alpine:3.17.0
 ARG builder_image=concourse/golang-builder
 
 FROM ${builder_image} AS builder
@@ -17,6 +17,8 @@ RUN set -e; for pkg in $(go list ./...); do \
 
 FROM ${base_image} AS resource
 USER root
+RUN apk add --no-cache tzdata
+RUN apk add --no-cache openssh
 COPY --from=builder /assets /opt/resource
 
 FROM resource AS tests
@@ -26,3 +28,4 @@ RUN set -e; for test in /tests/*.test; do \
 	done
 
 FROM resource
+

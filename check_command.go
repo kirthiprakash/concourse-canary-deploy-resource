@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/concourse/time-resource/canary_deploy"
@@ -45,7 +46,7 @@ func (*CheckCommand) Run(request models.CheckRequest) ([]models.Version, error) 
 	}
 	stateFile, err := canarystatefile.GetStateFileFromGithub(config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get statefile: %w", err)
 	}
 	cd := canary_deploy.CanaryDeploy{
 		StateFile:    stateFile,
@@ -63,6 +64,5 @@ func (*CheckCommand) Run(request models.CheckRequest) ([]models.Version, error) 
 	if tl.Check(currentTime) && cd.Check() {
 		versions = append(versions, models.Version{Time: currentTime})
 	}
-
 	return versions, nil
 }
