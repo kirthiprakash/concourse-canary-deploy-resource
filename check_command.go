@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/concourse/time-resource/canary_deploy"
-	canarystatefile "github.com/concourse/time-resource/canary_state_file"
 	"github.com/concourse/time-resource/lord"
 	"github.com/concourse/time-resource/models"
 )
@@ -15,6 +14,16 @@ type CheckCommand struct {
 
 func (*CheckCommand) Run(request models.CheckRequest) ([]models.Version, error) {
 	err := request.Source.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	canaryDeploy := canary_deploy.Config{
+		ReqSource:    request.Source,
+		LocationType: canary_deploy.GitRepo,
+	}
+	// validating inputs for canary deployment
+	err = canaryDeploy.Validate()
 	if err != nil {
 		return nil, err
 	}
@@ -38,22 +47,6 @@ func (*CheckCommand) Run(request models.CheckRequest) ([]models.Version, error) 
 
 	versions := []models.Version{}
 
-	config := canarystatefile.Config{
-		GitRepoURL:                request.Source.GitRepoURL,
-		GitRepoPrivateKey:         request.Source.GitRepoPrivateKey,
-		GitRepoPrivateKeyPassword: request.Source.GitRepoPrivateKeyPassword,
-		ServiceName:               request.Source.ServiceName,
-	}
-	stateFile, err := canarystatefile.GetStateFileFromGithub(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get statefile: %w", err)
-	}
-	cd := canary_deploy.CanaryDeploy{
-		StateFile:    stateFile,
-		CanaryRegion: request.Source.CanaryRegion,
-		DependsOn:    request.Source.DependsOn,
-	}
-
 	if !previousTime.IsZero() {
 		versions = append(versions, models.Version{Time: previousTime})
 	} else if request.Source.InitialVersion {
@@ -61,8 +54,16 @@ func (*CheckCommand) Run(request models.CheckRequest) ([]models.Version, error) 
 		return versions, nil
 	}
 
-	if tl.Check(currentTime) && cd.Check() {
-		versions = append(versions, models.Version{Time: currentTime})
+	if tl.Check(currentTime) {
+
+		hasPendingDeployment, err := canaryDeploy.Check()
+		if err != nil {
+			return nil, fmt.Errorf("failed to check canary deploy statefile. err: %q", err)
+		}
+		// Append new version only if both time and canary deploy criteria are true.
+		if hasPendingDeployment {
+			versions = append(versions, models.Version{Time: currentTime})
+		}
 	}
 	return versions, nil
 }

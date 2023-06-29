@@ -1,4 +1,4 @@
-package canarystatefile
+package canary_deploy
 
 import (
 	"encoding/json"
@@ -12,31 +12,35 @@ import (
 	crypto_ssh "golang.org/x/crypto/ssh"
 )
 
-type Config struct {
+type GitRepoStatefileFetcher struct {
 	GitRepoURL                string
 	GitRepoPrivateKey         string
 	GitRepoPrivateKeyPassword string
 	ServiceName               string
 }
 
-func GetStateFileFromGithub(config Config) (map[string]interface{}, error) {
-	var stateFile map[string]interface{}
-	publicKeys, err := ssh.NewPublicKeys("git", []byte(config.GitRepoPrivateKey), config.GitRepoPrivateKeyPassword)
+func (fetcher GitRepoStatefileFetcher) Get() (Statefile, error) {
+	stateFile := Statefile{}
+	publicKeys, err := ssh.NewPublicKeys("git", []byte(fetcher.GitRepoPrivateKey), fetcher.GitRepoPrivateKeyPassword)
 	if err != nil {
 		return stateFile, fmt.Errorf("failed to extract auth info from private key: %w", err)
 	}
+	// required to skip the known_hosts check
 	publicKeys.HostKeyCallback = crypto_ssh.InsecureIgnoreHostKey()
+
+	// clone the repo to in-memory FS
 	storer := memory.NewStorage()
 	fs := memfs.New()
+
 	_, err = git.Clone(storer, fs, &git.CloneOptions{
 		Auth: publicKeys,
-		URL:  config.GitRepoURL,
+		URL:  fetcher.GitRepoURL,
 	})
 	if err != nil {
 		return stateFile, fmt.Errorf("failed to clone repo: %w", err)
 	}
 
-	state, err := fs.Open(fmt.Sprintf("state-files/%s/pipeline-state.json", config.ServiceName))
+	state, err := fs.Open(fmt.Sprintf("state-files/%s/pipeline-state.json", fetcher.ServiceName))
 	if err != nil {
 		return stateFile, fmt.Errorf("failed to open state file: %w", err)
 	}
@@ -45,9 +49,13 @@ func GetStateFileFromGithub(config Config) (map[string]interface{}, error) {
 	if err != nil {
 		return stateFile, fmt.Errorf("failed to read state file: %w", err)
 	}
-	err = json.Unmarshal(byteValue, &stateFile)
+
+	// Unmarshal the statefile which is in JSON format to an arbitary map.
+	var data map[string]interface{}
+	err = json.Unmarshal(byteValue, &data)
 	if err != nil {
 		return stateFile, fmt.Errorf("failed to unmarshal state file to map of string and interface: %w", err)
 	}
+	stateFile.Data = data
 	return stateFile, nil
 }
