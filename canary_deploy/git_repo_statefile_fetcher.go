@@ -51,11 +51,12 @@ func (fetcher GitRepoStatefileFetcher) Get() (Statefile, error) {
 	}
 
 	// Unmarshal the statefile which is in JSON format to an arbitary map.
-	var data map[string]interface{}
+	var data map[string]CanaryRegionState
 	err = json.Unmarshal(byteValue, &data)
 	if err != nil {
 		return stateFile, fmt.Errorf("failed to unmarshal state file to map of string and interface: %w", err)
 	}
-	stateFile.Data = data
-	return stateFile, nil
+	return Statefile{
+		Data: data,
+	}, nil
 }

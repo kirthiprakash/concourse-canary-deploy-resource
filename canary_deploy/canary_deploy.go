@@ -14,26 +14,36 @@ const (
 )
 
 type Config struct {
-	ReqSource    models.Source
+	ReqSourcePtr *models.CanaryDeploySource
 	LocationType StatefileLocationType
 }
 
 func (c Config) Validate() error {
-	if len(c.ReqSource.CanaryRegion) == 0 {
-		return fmt.Errorf("field canary_region is not set")
+	// Canary region check is optional.
+	// Don't error if configuration related to canary region deployment is not passed.
+	if c.ReqSourcePtr == nil {
+		return nil
 	}
-	if len(c.ReqSource.DependsOn) == 0 {
-		return fmt.Errorf("field depends_on is not set")
+	if c.ReqSourcePtr != nil && len(c.ReqSourcePtr.CanaryRegion) == 0 {
+		return fmt.Errorf("field canary_deploy.canary_region is not set")
 	}
+	if c.ReqSourcePtr != nil && len(c.ReqSourcePtr.DependsOn) == 0 {
+		return fmt.Errorf("field canary_deploy.depends_on is not set")
+	}
+
 	// GitRepoStateFile validation
-	if len(c.ReqSource.GitRepoURL) == 0 {
-		return fmt.Errorf("field git_repo_url is not set")
+	if c.LocationType == GitRepo && c.ReqSourcePtr != nil && c.ReqSourcePtr.GitRepoPtr == nil {
+		return fmt.Errorf("canary_deploy.git_repo field is not set")
 	}
-	if len(c.ReqSource.GitRepoPrivateKey) == 0 {
-		return fmt.Errorf("field git_repo_private_key is not set")
+	gitRepoPtr := c.ReqSourcePtr.GitRepoPtr
+	if len(gitRepoPtr.URL) == 0 {
+		return fmt.Errorf("field canary_deploy.git_repo.url is not set")
 	}
-	if len(c.ReqSource.ServiceName) == 0 {
-		return fmt.Errorf("field service_name is not set")
+	if len(gitRepoPtr.PrivateKey) == 0 {
+		return fmt.Errorf("field canary_deploy.git_repo.private_key is not set")
+	}
+	if len(gitRepoPtr.ServiceName) == 0 {
+		return fmt.Errorf("field canary_deploy.git_repo.service_name is not set")
 	}
 	return nil
 }
@@ -42,11 +52,12 @@ func (c Config) Check() (bool, error) {
 	var fetcher StateFileFetcher
 	switch c.LocationType {
 	case GitRepo:
+		gitRepoPtr := c.ReqSourcePtr.GitRepoPtr
 		fetcher = GitRepoStatefileFetcher{
-			GitRepoURL:                c.ReqSource.GitRepoURL,
-			GitRepoPrivateKey:         c.ReqSource.GitRepoPrivateKey,
-			GitRepoPrivateKeyPassword: c.ReqSource.GitRepoPrivateKeyPassword,
-			ServiceName:               c.ReqSource.ServiceName,
+			GitRepoURL:                gitRepoPtr.URL,
+			GitRepoPrivateKey:         gitRepoPtr.PrivateKey,
+			GitRepoPrivateKeyPassword: gitRepoPtr.PrivateKeyPassword,
+			ServiceName:               gitRepoPtr.ServiceName,
 		}
 	case Local:
 		// Sample implementation. Returns empty statefile.
@@ -61,11 +72,10 @@ func (c Config) Check() (bool, error) {
 	}
 
 	forCanaryRegion := CanaryRegion{
-		Name:      c.ReqSource.CanaryRegion,
-		DependsOn: c.ReqSource.DependsOn,
+		Name:      c.ReqSourcePtr.CanaryRegion,
+		DependsOn: c.ReqSourcePtr.DependsOn,
 	}
 	return statefile.HasPendingDeployment(forCanaryRegion), nil
-
 }
 
 type CanaryRegion struct {
@@ -73,38 +83,34 @@ type CanaryRegion struct {
 	DependsOn string
 }
 
-//
+type CanaryRegionState struct {
+	Tag    string `json:"tag"`
+	Ref    string `json:"ref"`
+	Paused string `json:"paused"`
+}
+
 type Statefile struct {
-	Data map[string]interface{}
+	Data map[string]CanaryRegionState
 }
 
 func (s Statefile) HasPendingDeployment(region CanaryRegion) bool {
-	fmt.Println(s.Data)
-	currentRegionStateIn, ok := s.Data[region.Name]
+	currentRegionState, ok := s.Data[region.Name]
 	if !ok {
 		return false
 	}
-	prevRegionStateIn, ok := s.Data[region.DependsOn]
+	prevRegionState, ok := s.Data[region.DependsOn]
 	if !ok {
 		return false
 	}
-	currentRegionState, ok := currentRegionStateIn.(map[string]interface{})
-	if !ok {
+	if currentRegionState.Paused == "yes" {
 		return false
 	}
-	prevRegionState, ok := prevRegionStateIn.(map[string]interface{})
-	if !ok {
-		return false
+	if len(currentRegionState.Ref) > 0 && len(prevRegionState.Ref) > 0 &&
+		currentRegionState.Ref != prevRegionState.Ref {
+		return true
 	}
-	currentRegionTag, ok := currentRegionState["tag"].(string)
-	if !ok {
-		return false
-	}
-	prevRegionTag, ok := prevRegionState["tag"].(string)
-	if !ok {
-		return false
-	}
-	if len(currentRegionTag) > 0 && len(prevRegionTag) > 0 && currentRegionTag != prevRegionTag {
+	if len(currentRegionState.Tag) > 0 && len(currentRegionState.Tag) > 0 &&
+		currentRegionState.Tag != prevRegionState.Tag {
 		return true
 	}
 	return false

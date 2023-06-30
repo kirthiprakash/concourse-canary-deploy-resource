@@ -18,14 +18,21 @@ func (*CheckCommand) Run(request models.CheckRequest) ([]models.Version, error) 
 		return nil, err
 	}
 
-	canaryDeploy := canary_deploy.Config{
-		ReqSource:    request.Source,
-		LocationType: canary_deploy.GitRepo,
-	}
-	// validating inputs for canary deployment
-	err = canaryDeploy.Validate()
-	if err != nil {
-		return nil, err
+	// Validating inputs for canary deployment if provided
+	// Q: Why validate here? Why not just before calling Check()?
+	// A: Fail fast. The Canary Deploy check is called only when the
+	//    time criteria is satisfied.
+	var canaryDeploy canary_deploy.Config
+	if request.Source.CanaryDeployPtr != nil {
+		canaryDeploy = canary_deploy.Config{
+			ReqSourcePtr: request.Source.CanaryDeployPtr,
+			LocationType: canary_deploy.GitRepo,
+		}
+
+		err = canaryDeploy.Validate()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	previousTime := request.Version.Time
@@ -55,13 +62,15 @@ func (*CheckCommand) Run(request models.CheckRequest) ([]models.Version, error) 
 	}
 
 	if tl.Check(currentTime) {
-
-		hasPendingDeployment, err := canaryDeploy.Check()
-		if err != nil {
-			return nil, fmt.Errorf("failed to check canary deploy statefile. err: %q", err)
+		hasPendingDeployment := false
+		if request.Source.CanaryDeployPtr != nil {
+			hasPendingDeployment, err = canaryDeploy.Check()
+			if err != nil {
+				return nil, fmt.Errorf("failed to check canary deploy statefile. err: %q", err)
+			}
 		}
-		// Append new version only if both time and canary deploy criteria are true.
-		if hasPendingDeployment {
+
+		if request.Source.CanaryDeployPtr == nil || hasPendingDeployment {
 			versions = append(versions, models.Version{Time: currentTime})
 		}
 	}
