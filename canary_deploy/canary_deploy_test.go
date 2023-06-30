@@ -16,8 +16,9 @@ var _ = Describe("Config", func() {
 			emptyGitRepo,
 			emptyGitRepoUrl,
 			emptyGitRepoPrivateKey,
-			emptyGitRepoServiceName,
-			emptyGitRepoSHHPassword models.CanaryDeploySource
+			emptyGitRepoPath,
+			emptyGitRepoSHHPassword,
+			emptyGitRepoBranch models.CanaryDeploySource
 
 		BeforeEach(func() {
 			config = canary_deploy.Config{}
@@ -49,13 +50,24 @@ var _ = Describe("Config", func() {
 					PrivateKey: "",
 				},
 			}
-			emptyGitRepoServiceName = models.CanaryDeploySource{
+			emptyGitRepoPath = models.CanaryDeploySource{
 				CanaryRegion: "Something",
 				DependsOn:    "something",
 				GitRepoPtr: &models.GitRepoSource{
-					URL:         "something",
-					PrivateKey:  "something",
-					ServiceName: "",
+					URL:        "something",
+					PrivateKey: "something",
+					Path:       "",
+				},
+			}
+			emptyGitRepoBranch = models.CanaryDeploySource{
+				CanaryRegion: "Something",
+				DependsOn:    "something",
+				GitRepoPtr: &models.GitRepoSource{
+					URL:                "something",
+					PrivateKey:         "something",
+					Path:               "something",
+					PrivateKeyPassword: "something",
+					Branch:             "",
 				},
 			}
 			emptyGitRepoSHHPassword = models.CanaryDeploySource{
@@ -64,7 +76,8 @@ var _ = Describe("Config", func() {
 				GitRepoPtr: &models.GitRepoSource{
 					URL:                "something",
 					PrivateKey:         "something",
-					ServiceName:        "something",
+					Path:               "something",
+					Branch:             "something",
 					PrivateKeyPassword: "",
 				},
 			}
@@ -104,11 +117,17 @@ var _ = Describe("Config", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("canary_deploy.git_repo.private_key"))
 		})
-		It("errors on empty git_repo service name field", func() {
-			config.ReqSourcePtr = &emptyGitRepoServiceName
+		It("errors on empty git_repo path field", func() {
+			config.ReqSourcePtr = &emptyGitRepoPath
 			err := config.Validate()
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("canary_deploy.git_repo.service_name"))
+			Expect(err.Error()).To(ContainSubstring("canary_deploy.git_repo.path"))
+		})
+		It("errors on empty git_repo branch field", func() {
+			config.ReqSourcePtr = &emptyGitRepoBranch
+			err := config.Validate()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("canary_deploy.git_repo.branch"))
 		})
 		It("doesn't error on empty ssh passphase", func() {
 			config.ReqSourcePtr = &emptyGitRepoSHHPassword

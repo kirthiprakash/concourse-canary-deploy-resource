@@ -42,8 +42,11 @@ func (c Config) Validate() error {
 	if len(gitRepoPtr.PrivateKey) == 0 {
 		return fmt.Errorf("field canary_deploy.git_repo.private_key is not set")
 	}
-	if len(gitRepoPtr.ServiceName) == 0 {
-		return fmt.Errorf("field canary_deploy.git_repo.service_name is not set")
+	if len(gitRepoPtr.Path) == 0 {
+		return fmt.Errorf("field canary_deploy.git_repo.path is not set")
+	}
+	if len(gitRepoPtr.Branch) == 0 {
+		return fmt.Errorf("field canary_deploy.git_repo.branch is not set")
 	}
 	return nil
 }
@@ -55,9 +58,10 @@ func (c Config) Check() (bool, error) {
 		gitRepoPtr := c.ReqSourcePtr.GitRepoPtr
 		fetcher = GitRepoStatefileFetcher{
 			GitRepoURL:                gitRepoPtr.URL,
+			GitRepoBranch:             gitRepoPtr.Branch,
 			GitRepoPrivateKey:         gitRepoPtr.PrivateKey,
 			GitRepoPrivateKeyPassword: gitRepoPtr.PrivateKeyPassword,
-			ServiceName:               gitRepoPtr.ServiceName,
+			Path:                      gitRepoPtr.Path,
 		}
 	case Local:
 		// Sample implementation. Returns empty statefile.

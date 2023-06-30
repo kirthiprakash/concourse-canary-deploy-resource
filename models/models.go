@@ -56,9 +56,10 @@ type CanaryDeploySource struct {
 
 type GitRepoSource struct {
 	URL                string `json:"url"`
+	Branch             string `json:"branch"`
 	PrivateKey         string `json:"private_key"`
 	PrivateKeyPassword string `json:"private_key_password"`
-	ServiceName        string `json:"service_name"`
+	Path               string `json:"path"`
 }
 
 func (source Source) Validate() error {

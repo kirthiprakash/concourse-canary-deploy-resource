@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
 	crypto_ssh "golang.org/x/crypto/ssh"
@@ -14,9 +15,10 @@ import (
 
 type GitRepoStatefileFetcher struct {
 	GitRepoURL                string
+	GitRepoBranch             string
 	GitRepoPrivateKey         string
 	GitRepoPrivateKeyPassword string
-	ServiceName               string
+	Path                      string
 }
 
 func (fetcher GitRepoStatefileFetcher) Get() (Statefile, error) {
@@ -33,14 +35,15 @@ func (fetcher GitRepoStatefileFetcher) Get() (Statefile, error) {
 	fs := memfs.New()
 
 	_, err = git.Clone(storer, fs, &git.CloneOptions{
-		Auth: publicKeys,
-		URL:  fetcher.GitRepoURL,
+		Auth:          publicKeys,
+		URL:           fetcher.GitRepoURL,
+		ReferenceName: plumbing.ReferenceName(fetcher.GitRepoBranch),
 	})
 	if err != nil {
 		return stateFile, fmt.Errorf("failed to clone repo: %w", err)
 	}
 
-	state, err := fs.Open(fmt.Sprintf("state-files/%s/pipeline-state.json", fetcher.ServiceName))
+	state, err := fs.Open(fetcher.Path)
 	if err != nil {
 		return stateFile, fmt.Errorf("failed to open state file: %w", err)
 	}
